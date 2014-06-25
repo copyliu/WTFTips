@@ -34,7 +34,7 @@ namespace WTFTips
     {
         private const int WS_EX_TRANSPARENT = 0x20;
         private const int GWL_EXSTYLE = (-20);
-        private string keys = "1";
+        private string keys = "";
 
         Thread thread;
 
@@ -156,7 +156,7 @@ namespace WTFTips
 
         void parse(string s)
         {
-            var items=s.Split('/');
+            var items = s.Split(new[] { '/' },6);
             if (items.Length < 6) return;
             var type = items[3];
             var data = items[4];
@@ -164,14 +164,25 @@ namespace WTFTips
             switch (type)
             {
                 case "RING":
-                    openNewWindow("呼叫", data+content);
+                    openNewWindow("呼叫", content);
                     break;
                 //{RING,SMS,MMS,BATTERY,PING} 
                 case "SMS":
+                    openNewWindow("來自 " + data + " 的短信", content.Replace("SMS from ", ""));
                     break;
                 case "MMS":
+                    openNewWindow("來自 " + data + " 的彩信", content.Replace("MMS form ", ""));
                     break;
                 case "BATTERY":
+                    if (content.Contains("Charging"))
+                    {
+                        openNewWindow("主電源供給系統", "臍帶電纜接入 充電中: " + data + "%");
+                    }
+                    else
+                    {
+                        openNewWindow("主電源供給系統", "臍帶電纜丟失 放電中: " + data + "%");
+                    }
+                    
                     break;
                 case "PING":
                     openNewWindow("警告","測試");
