@@ -1,7 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,9 +34,9 @@ namespace WTFTips
     {
         private const int WS_EX_TRANSPARENT = 0x20;
         private const int GWL_EXSTYLE = (-20);
-        
-        
-        Thread thread=new  Thread(() => ChatClass.irc.Listen());
+        private string keys = "1";
+
+        Thread thread;
 
         [DllImport("user32", EntryPoint = "SetWindowLong")]
         private static extern uint SetWindowLong(IntPtr hwnd, int nIndex, uint dwNewLong);
@@ -40,19 +44,160 @@ namespace WTFTips
         [DllImport("user32", EntryPoint = "GetWindowLong")]
         private static extern uint GetWindowLong(IntPtr hwnd, int nIndex);
 
-        public MainWindow()
-        {
-            InitializeComponent();
-            thread.IsBackground = true;
-        }
+ public string DecryptText(byte[] encryptedString,byte []k,byte[]iv)
+	        {
+	            using (var myRijndael = new RijndaelManaged())
+	            {
 
-        void Timer_Elapsed(object sender, ElapsedEventArgs e)
+	                myRijndael.Key = k;
+	                myRijndael.IV = iv;
+	                myRijndael.Mode = CipherMode.CBC;
+	                myRijndael.Padding = PaddingMode.PKCS7;
+	 
+	                ;
+                    string ourDec = DecryptStringFromBytes(encryptedString, myRijndael.Key, myRijndael.IV);
+	 
+	                return ourDec;
+	            }
+
+	        }
+
+ protected string DecryptStringFromBytes(byte[] cipherText, byte[] Key, byte[] IV)
+ {
+     // Check arguments.
+     if (cipherText == null || cipherText.Length <= 0)
+         throw new ArgumentNullException("cipherText");
+     if (Key == null || Key.Length <= 0)
+         throw new ArgumentNullException("Key");
+     if (IV == null || IV.Length <= 0)
+         throw new ArgumentNullException("Key");
+
+     // Declare the string used to hold
+     // the decrypted text.
+     string plaintext = null;
+
+     // Create an RijndaelManaged object
+     // with the specified key and IV.
+     using (RijndaelManaged rijAlg = new RijndaelManaged())
+     {
+         rijAlg.Key = Key;
+         rijAlg.IV = IV;
+         rijAlg.Mode=CipherMode.CBC;
+         rijAlg.Padding = PaddingMode.PKCS7;
+         // Create a decrytor to perform the stream transform.
+         ICryptoTransform decryptor = rijAlg.CreateDecryptor(rijAlg.Key, rijAlg.IV);
+
+         // Create the streams used for decryption.
+         using (MemoryStream msDecrypt = new MemoryStream(cipherText))
+         {
+             using (CryptoStream csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
+             {
+                 using (StreamReader srDecrypt = new StreamReader(csDecrypt))
+                 {
+
+                     // Read the decrypted bytes from the decrypting stream
+                     // and place them in a string.
+                     plaintext = srDecrypt.ReadToEnd();
+                 }
+             }
+         }
+
+     }
+
+     return plaintext;
+
+ }
+	 
+        void Listener()
         {
-            if (ChatClass.irc.IsConnected)
+            UdpClient udpServer = new UdpClient(10600);
+            
+            while (true)
             {
-                ChatClass.irc.ListenOnce();
+                var groupEP = new IPEndPoint(IPAddress.Any, 10600); // listen on any port
+                var data = udpServer.Receive(ref groupEP);
+                string s;
+                if (data[0] == 'v' && data[1] == '2')
+                {
+                    s = Encoding.UTF8.GetString(data);
+                }
+                else
+                {
+                    var k = keys;
+                    byte[] iv;
+                    byte[] key=Encoding.UTF8.GetBytes(k);
+                     var n = MD5.Create();
+                    for (int i = 0; i < 10; i++)
+                    {
+                       
+                        key = n.ComputeHash(key);
+                    }
+                    iv = n.ComputeHash(key);
+                    try
+                    {
+                        s = DecryptStringFromBytes(data, key,iv );
+                    }
+                    catch (Exception ex)
+                    {
+                        logging(ex+"");
+                        continue;
+                    }
+                   
+
+                }
+                s = s.Replace('\x00', ' ');
+                s = s.Trim();
+               logging(s);
+                this.Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(() => parse(s)));
+               
+
             }
         }
+
+        void parse(string s)
+        {
+            var items=s.Split('/');
+            if (items.Length < 6) return;
+            var type = items[3];
+            var data = items[4];
+            var content = items[5];
+            switch (type)
+            {
+                case "RING":
+                    openNewWindow("呼叫", data+content);
+                    break;
+                //{RING,SMS,MMS,BATTERY,PING} 
+                case "SMS":
+                    break;
+                case "MMS":
+                    break;
+                case "BATTERY":
+                    break;
+                case "PING":
+                    openNewWindow("警告","測試");
+                    break;
+                default:
+                    break;
+
+
+            }
+        }
+
+        public MainWindow()
+        {
+            thread = new Thread(() => Listener());
+            InitializeComponent();
+            thread.IsBackground = true;
+            thread.Start();
+            PW.TextChanged += PW_TextChanged;
+        }
+
+        void PW_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            keys = PW.Text.Trim();
+        }
+
+       
 
         private int v = 0;
 
@@ -198,132 +343,17 @@ namespace WTFTips
 
         public void logging(string text)
         {
-            this.logER.Text = this.logER.Text + text + "\n";
-        }
-
-        private void ConnBtn_OnClick(object sender, RoutedEventArgs e)
-        {
-            if (ChatClass.irc != null && ChatClass.irc.IsConnected)
+            if (logER.Dispatcher.CheckAccess())
             {
-                logging("已連接到服務器");
-                return;
+                this.logER.Text = this.logER.Text + text + "\n";
             }
-
-            ChatClass.irc = new IrcClient();
-            ChatClass.irc.Encoding = System.Text.Encoding.UTF8;
-            ChatClass.irc.OnQueryMessage += new IrcEventHandler(OnQueryMessage);
-            ChatClass.irc.OnError += new ErrorEventHandler(OnError);
-            ChatClass.irc.OnRawMessage += new IrcEventHandler(OnRawMessage);
-            ChatClass.irc.OnChannelMessage += irc_OnChannelMessage;
-            string[] serverlist;
-            // the server we want to connect to, could be also a simple string
-            serverlist = new string[] {ServerNameTbx.Text.Trim()};
-            int port = 6667;
-            string channel = ChannelNameTbx.Text.Trim();
-            logging("正在连接");
-            
-            this.openNewWindow("正在连接");
-            try
+            else
             {
-                // here we try to connect to the server and exceptions get handled
-                ChatClass.irc.Connect(serverlist, port);
-            }
-            catch (ConnectionException ex)
-            {
-                // something went wrong, the reason will be shown
-               logging( "无法连接服务器");
-                logging(ex.Message);
-                this.openNewWindow("无法连接服务器");
-                
-
-            }
-
-            try
-            {
-                // here we logon and register our nickname and so on
-                ChatClass.irc.Login(NickNameTbx.Text.Trim(), NickNameTbx.Text.Trim());
-                // join the channel
-                ChatClass.irc.RfcJoin(channel);
-
-//                for (int i = 0; i < 3; i++)
-//                {
-//                    // here we send just 3 different types of messages, 3 times for
-//                    // testing the delay and flood protection (messagebuffer work)
-////                    ChatClass.irc.SendMessage(SendType.Message, channel, "test message (" + i.ToString() + ")");
-////                    ChatClass.irc.SendMessage(SendType.Action, channel, "thinks this is cool (" + i.ToString() + ")");
-////                    ChatClass.irc.SendMessage(SendType.Notice, channel, "SmartIrc4net rocks (" + i.ToString() + ")");
-//                }
-                thread.Start();
-                this.NickNameTbx.IsReadOnly = true;
-                this.ChannelNameTbx.IsReadOnly = true;
-            }
-            catch (Exception ex)
-            {
-             //t.Stop();   
+                logER.Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(() => logging(text)));
             }
         }
 
       
 
-        void irc_OnChannelMessage(object sender, IrcEventArgs e)
-        {
-            this.Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(() =>
-            {
-
-                this.openNewWindow(e.Data.Nick,e.Data.Message);
-
-                logging(e.Data.Nick+":"+e.Data.Message);
-               
-            }
-               ));
-
-
-        }
-
-        private void OnRawMessage(object sender, IrcEventArgs e)
-        {
-            this.Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(() =>
-            {
-
-            if (e.Data.Type == ReceiveType.Join)
-            {
-                logging(e.Data.Nick+" 成功加入聊天頻道");
-                
-                this.openNewWindow("通知", e.Data.Nick+" 加入聊天頻道");
-            }
-
-                //logging(e.Data.Type.ToString());
-            }));
-
-
-            //System.Console.WriteLine("Received: " + e.Data.RawMessage);
-            //throw new NotImplementedException();
-        }
-
-        private void OnError(object sender, ErrorEventArgs e)
-        {
-            //throw new NotImplementedException();
-        }
-
-        private void OnQueryMessage(object sender, IrcEventArgs e)
-        {
-           // throw new NotImplementedException();
-        }
-
-        private void SendBtn_OnClick(object sender, RoutedEventArgs e)
-        {
-            if (ChatClass.irc != null && ChatClass.irc.IsConnected)
-            {
-                
-                ChatClass.irc.SendMessage(SendType.Message, this.ChannelNameTbx.Text.Trim(),this.tb1.Text.Trim());
-                openNewWindow("發送中", this.tb1.Text.Trim());
-                logging("自己: "+this.tb1.Text.Trim());
-            }
-            else
-            {
-                logging("未連接");
-                openNewWindow("警告","未連接到聊天服務器");
-            }
-        }
     }
 }

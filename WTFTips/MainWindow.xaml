@@ -6,11 +6,7 @@
         <Button Content="彈窗測試" HorizontalAlignment="Left" Margin="338,20,0,0" VerticalAlignment="Top" Width="75" Click="Button_Click"/>
         <TextBox x:Name="tb1" HorizontalAlignment="Left" Height="29" Margin="10,10.24,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="323"/>
         <TextBox x:Name="logER" Margin="0,147,0,0" TextWrapping="Wrap" Text="" VerticalScrollBarVisibility="Auto"/>
-        <TextBox x:Name="ServerNameTbx" HorizontalAlignment="Left" Height="23" Margin="10,44,0,0" TextWrapping="Wrap" Text="irc.freenode.net" VerticalAlignment="Top" Width="193"/>
-        <TextBox x:Name="NickNameTbx" HorizontalAlignment="Left" Height="23" Margin="213,44,0,0" TextWrapping="Wrap" Text="NickNameHere" VerticalAlignment="Top" Width="120"/>
-        <TextBox x:Name="ChannelNameTbx" HorizontalAlignment="Left" Height="23" Margin="338,44.24,0,0" TextWrapping="Wrap" Text="#copyliu-test" VerticalAlignment="Top" Width="120"/>
-        <Button x:Name="ConnBtn" Content="Connect" HorizontalAlignment="Left" Margin="10,72,0,0" VerticalAlignment="Top" Width="75" Click="ConnBtn_OnClick"/>
-        <Button x:Name="SendBtn" Content="發言" HorizontalAlignment="Left" Margin="90,72,0,0" VerticalAlignment="Top" Width="75" Click="SendBtn_OnClick"/>
+        <TextBox x:Name="PW" HorizontalAlignment="Left" Height="23" Margin="10,44,0,0" TextWrapping="Wrap" Text="1" VerticalAlignment="Top" Width="120"/>
 
     </Grid>
 </Window>
