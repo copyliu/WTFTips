@@ -168,10 +168,10 @@ namespace WTFTips
                     break;
                 //{RING,SMS,MMS,BATTERY,PING} 
                 case "SMS":
-                    openNewWindow("來自 " + data + " 的短信", content.Replace("SMS from ", ""));
+                    openNewWindow("來自 " + data + " 的短信", content.Split(':')[1]);
                     break;
                 case "MMS":
-                    openNewWindow("來自 " + data + " 的彩信", content.Replace("MMS form ", ""));
+                    openNewWindow("來自 " + data + " 的彩信", content.Split(':')[1]);
                     break;
                 case "BATTERY":
                     if (content.Contains("Charging"))
